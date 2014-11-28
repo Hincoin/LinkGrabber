@@ -52,7 +52,7 @@ print("Downloading " + str(len(download_links)) + " files!");
 remove_http = re.sub("http[s]?://",'',crawl_link); # get the base without http
 crawl_parse = urlparse(crawl_link);
 protocol = protocol_regex.search(crawl_link).group(0); # get http or https
-
+i = 1;
 for file_n in download_links:
 
     file_name = urllib2.unquote(file_n);
@@ -60,22 +60,20 @@ for file_n in download_links:
     #destination file
     save_file_name = dir_to_store + file_name_parse[2].split("/")[len(file_name_parse[2].split("/"))-1];
     
-    print("downloading " + file_name + "  ....");
-    print("saving as " + save_file_name);
+    print("downloading file " + str(i) + "/" + str(len(download_links)));
 
     req_str = file_name;
     #check if it an external link
+    
     if(not (file_name_parse[0] == 'http' or file_name_parse[0] == 'https')):
 
        
       #check if absoulute or relative filepath
       if(file_name_parse[2][0] == '/'): #asbolute path
-          req_str = urljoin(crawl_parse[0] + "://" + crawl_parse[1] , file_name_parse[2]);
+          req_str = urljoin(crawl_parse[0] + "://" + crawl_parse[1] ,''.join(file_name_parse[2].split("/")[:-1]) + "/" +  urllib.quote(file_name_parse[2].split("/")[len(file_name_parse[2].split("/"))-1]));
           
       else: #relative
-        req_str = urljoin(crawl_parse[0] + "://" + crawl_parse[1] + crawl_parse[2], file_name_parse[2]);
-       
-
+        req_str = urljoin(crawl_parse[0] + "://" + crawl_parse[1] + crawl_parse[2], ''.join(file_name_parse[2].split("/")[:-1]) + "/" + urllib.quote(file_name_parse[2].split("/")[len(file_name_parse[2].split("/"))-1]));
     Request = urllib2.Request(req_str,headers={'User-Agent' : 'Mozilla/5.0'});
     return_val = urllib2.urlopen(Request);
     with open(save_file_name,'wb') as local_file:
