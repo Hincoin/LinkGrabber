@@ -3,7 +3,6 @@ import urllib;
 import re;
 
 
-regex_str = "\b(([\w-]+://?|www[.])[^\s()<>]+(?:\([\w\d]+\)|([^[:punct:]\s]|/)))";
 def extract_links(extensions,html):
     
         base_string = "http[s]?://*.*\.";
@@ -12,7 +11,7 @@ def extract_links(extensions,html):
           cur_regex = base_string + extension;
           regex = re.compile(cur_regex);
           valid_links = regex.findall(html);
-          print("Found " + str(len(valid_links)) + " links!");
+          print("Found " + str(len(valid_links)) + " links for extension " + extension + "!");
           #trying to be fluent in pythonese
           potential_downloads.extend([ x for x in valid_links if x.split(".")[len(x.split("."))-1] in extensions]);
 
