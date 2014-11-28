@@ -1,4 +1,5 @@
 What is LinkGrabber?
+===========================
 
 LinkGrabber facilitates the process of downloading files from a website.
 Some websites don't offer a "download all" or "download archive" option to
@@ -9,6 +10,7 @@ searches a given website for all links to user-specified extensions such as
 
 
 How to use LinkGrabber?
+===========================
 
 Link grabber is a simple command-line (soon-to-be GUI) tool that requires
 no command line arguments! Simply run the program and enter the corresponding
