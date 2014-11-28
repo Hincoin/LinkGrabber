@@ -2,7 +2,8 @@ import urllib2;
 import urllib;
 import re;
 import os;
-
+from urlparse import urlparse
+from urlparse import urljoin
 protocol_regex = re.compile("http[s]?");
 
 
@@ -49,36 +50,36 @@ download_links = extract_links(extension_list,html);
 print("Downloading " + str(len(download_links)) + " files!");
 
 remove_http = re.sub("http[s]?://",'',crawl_link); # get the base without http
-
+crawl_parse = urlparse(crawl_link);
 protocol = protocol_regex.search(crawl_link).group(0); # get http or https
 
 for file_n in download_links:
 
-    file_name = urllib.unquote(file_n);
+    file_name = urllib2.unquote(file_n);
+    file_name_parse = urlparse(file_name);
     #destination file
-    save_file_name = dir_to_store + file_name.split("/")[len(file_name.split("/"))-1];
+    save_file_name = dir_to_store + file_name_parse[2].split("/")[len(file_name_parse[2].split("/"))-1];
     
     print("downloading " + file_name + "  ....");
     print("saving as " + save_file_name);
 
-
+    req_str = file_name;
     #check if it an external link
-    if(not file_name.startswith("http")):
-        
+    if(not (file_name_parse[0] == 'http' or file_name_parse[0] == 'https')):
+
+       
       #check if absoulute or relative filepath
-      if(file_name[0] == '/'): #asbolute path
-          urllib.urlretrieve(protocol +"://" + remove_http.split("/")[0] + file_name,save_file_name);
+      if(file_name_parse[2][0] == '/'): #asbolute path
+          req_str = urljoin(crawl_parse[0] + "://" + crawl_parse[1] , file_name_parse[2]);
           
       else: #relative
-        reconstruction = "";
-        split_slash = remove_http.split("/");
-        for s in range(len(split_slash)-1):
-            reconstruction += split_slash[s] + "/";
-        print("Declaring relative " + protocol +  "://" + reconstruction + file_name);
-        urllib.urlretrieve(protocol + "://" + reconstruction + file_name,save_file_name);
-        
-    else: # external link
-      urllib.urlretrieve(file_name,save_file_name);
+        req_str = urljoin(crawl_parse[0] + "://" + crawl_parse[1] + crawl_parse[2], file_name_parse[2]);
+       
+
+    Request = urllib2.Request(req_str,headers={'User-Agent' : 'Mozilla/5.0'});
+    return_val = urllib2.urlopen(Request);
+    with open(save_file_name,'wb') as local_file:
+        local_file.write(return_val.read());
       
 print("Finished!");
 
