@@ -52,8 +52,9 @@ remove_http = re.sub("http[s]?://",'',crawl_link); # get the base without http
 
 protocol = protocol_regex.search(crawl_link).group(0); # get http or https
 
-for file_name in download_links:
+for file_n in download_links:
 
+    file_name = urllib.unquote(file_n);
     #destination file
     save_file_name = dir_to_store + file_name.split("/")[len(file_name.split("/"))-1];
     
@@ -69,7 +70,12 @@ for file_name in download_links:
           urllib.urlretrieve(protocol +"://" + remove_http.split("/")[0] + file_name,save_file_name);
           
       else: #relative
-        urllib.urlretrieve(''.join(crawl_link.split("/")[:-1]) + file_name,save_file_name);
+        reconstruction = "";
+        split_slash = remove_http.split("/");
+        for s in range(len(split_slash)-1):
+            reconstruction += split_slash[s] + "/";
+        print("Declaring relative " + protocol +  "://" + reconstruction + file_name);
+        urllib.urlretrieve(protocol + "://" + reconstruction + file_name,save_file_name);
         
     else: # external link
       urllib.urlretrieve(file_name,save_file_name);
