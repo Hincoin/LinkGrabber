@@ -1,0 +1,19 @@
+What is LinkGrabber?
+
+LinkGrabber facilitates the process of downloading files from a website.
+Some websites don't offer a "download all" or "download archive" option to
+easily download all PDFs, videos, or any other type of extension. This tool
+searches a given website for all links to user-specified extensions such as
+(pdf,m4v,docx) and downloads them to a given directory.
+
+
+
+How to use LinkGrabber?
+
+Link grabber is a simple command-line (soon-to-be GUI) tool that requires
+no command line arguments! Simply run the program and enter the corresponding
+information it requires, such as the webpage to crawl, the directory to store
+the downloaded files, and the extensions to search for.
+
+
+
