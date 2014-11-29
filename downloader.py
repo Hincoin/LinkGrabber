@@ -2,10 +2,51 @@ import urllib2;
 import urllib;
 import re;
 import os;
+import threading;
+import signal;
+import sys;
+import logging;
 from urlparse import urlparse
 from urlparse import urljoin
-protocol_regex = re.compile("http[s]?");
 
+thread_array = [];
+
+def signal_handler(signal,frame):
+    global thread_array;
+    for thread in thread_array:
+        thread.__Thread__stop();
+    sys.exit(0);
+def download(crawl_link,download_links,beginning,end):
+    crawl_parse = urlparse(crawl_link);
+    for iterator in range(beginning,end):
+        file_n = download_links[iterator];
+        file_name = urllib2.unquote(file_n);
+        file_name_parse = urlparse(file_name);
+        #destination file
+        save_file_name = dir_to_store + file_name_parse[2].split("/")[len(file_name_parse[2].split("/"))-1];
+    
+        logging.warning("Downloading file " + str(iterator + 1) + "/" + str(len(download_links)));
+
+        req_str = file_name;
+        #check if it an external link
+    
+        if(not (file_name_parse[0] == 'http' or file_name_parse[0] == 'https')):
+
+          split_slash = file_name_parse[2].split("/");
+          final_length = -1 *len(split_slash[-1]);
+          
+          #check if absoulute or relative filepath
+          if(file_name_parse[2][0] == '/'): #asbolute path
+              req_str = urljoin(crawl_parse[0] + "://" + crawl_parse[1] ,file_name_parse[2][:final_length] +  urllib.quote(split_slash[-1]));
+          
+          else: #relative
+            req_str = urljoin(crawl_parse[0] + "://" + crawl_parse[1] + crawl_parse[2], file_name_parse[2][:final_length] +  urllib.quote(split_slash[-1]));
+
+        Request = urllib2.Request(req_str,headers={'User-Agent' : 'Mozilla/5.0'});
+        return_val = urllib2.urlopen(Request);
+        with open(save_file_name,'wb') as local_file:
+            local_file.write(return_val.read());
+            
 
 def extract_links(extensions,html):
     
@@ -49,35 +90,24 @@ html = response.read();
 download_links = extract_links(extension_list,html);
 print("Downloading " + str(len(download_links)) + " files!");
 
-remove_http = re.sub("http[s]?://",'',crawl_link); # get the base without http
-crawl_parse = urlparse(crawl_link);
-protocol = protocol_regex.search(crawl_link).group(0); # get http or https
-i = 1;
-for file_n in download_links:
+max_threads = 4; # TODO: find python equivalent of std::thread::hardware_concurrency()
 
-    file_name = urllib2.unquote(file_n);
-    file_name_parse = urlparse(file_name);
-    #destination file
-    save_file_name = dir_to_store + file_name_parse[2].split("/")[len(file_name_parse[2].split("/"))-1];
-    
-    print("downloading file " + str(i) + "/" + str(len(download_links)));
+min_work_per_thread = 2; # 2 downloads per thread (maybe this is too little?)
 
-    req_str = file_name;
-    #check if it an external link
-    
-    if(not (file_name_parse[0] == 'http' or file_name_parse[0] == 'https')):
+num_threads = min([max_threads,len(download_links) + min_work_per_thread - 1]); #avoid thread oversubscription
 
-       
-      #check if absoulute or relative filepath
-      if(file_name_parse[2][0] == '/'): #asbolute path
-          req_str = urljoin(crawl_parse[0] + "://" + crawl_parse[1] ,''.join(file_name_parse[2].split("/")[:-1]) + "/" +  urllib.quote(file_name_parse[2].split("/")[len(file_name_parse[2].split("/"))-1]));
-          
-      else: #relative
-        req_str = urljoin(crawl_parse[0] + "://" + crawl_parse[1] + crawl_parse[2], ''.join(file_name_parse[2].split("/")[:-1]) + "/" + urllib.quote(file_name_parse[2].split("/")[len(file_name_parse[2].split("/"))-1]));
-    Request = urllib2.Request(req_str,headers={'User-Agent' : 'Mozilla/5.0'});
-    return_val = urllib2.urlopen(Request);
-    with open(save_file_name,'wb') as local_file:
-        local_file.write(return_val.read());
+downloads_sent = 0;
+for i in range(num_threads):
+    t = threading.Thread(target=download,args=[crawl_link,download_links,downloads_sent,downloads_sent + min_work_per_thread]);
+    thread_array.append(t);
+    t.start();
+    downloads_sent += min_work_per_thread;
+
+#finish the remainder using this thread
+if(downloads_sent < len(download_links)):
+    download(crawl_link,download_links,downloads_sent,len(download_links));
+
+
       
 print("Finished!");
 
