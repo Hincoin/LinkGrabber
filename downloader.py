@@ -6,8 +6,10 @@ import threading;
 import signal;
 import sys;
 import logging;
+import multiprocessing;
 from urlparse import urlparse
 from urlparse import urljoin
+from multiprocessing import Pool;
 
 thread_array = [];
 
@@ -16,7 +18,11 @@ def signal_handler(signal,frame):
     for thread in thread_array:
         thread.__Thread__stop();
     sys.exit(0);
-def download(crawl_link,download_links,beginning,end):
+
+def download_iter(map_args):
+    #download(map_args[0],map_args[1],map_args[2],map_args[3]);
+    download(*map_args);
+def download(crawl_link,dir_to_store,download_links,beginning,end):
     crawl_parse = urlparse(crawl_link);
     for iterator in range(beginning,end):
         file_n = download_links[iterator];
@@ -42,6 +48,7 @@ def download(crawl_link,download_links,beginning,end):
           else: #relative
             req_str = urljoin(crawl_parse[0] + "://" + crawl_parse[1] + crawl_parse[2], file_name_parse[2][:final_length] +  urllib.quote(split_slash[-1]));
 
+        logging.warning('URL: ' + req_str);
         Request = urllib2.Request(req_str,headers={'User-Agent' : 'Mozilla/5.0'});
         return_val = urllib2.urlopen(Request);
         with open(save_file_name,'wb') as local_file:
@@ -75,41 +82,62 @@ def extract_links(extensions,html):
 
 
 
-crawl_link = raw_input("Which website to crawl?\n");
-dir_to_store  = raw_input("Directory to store? [Hit enter for default directory]\n");
-if(len(dir_to_store) == 0):
-    dir_to_store = os.getcwd() + os.sep;
+def main():
+    crawl_link = raw_input("Which website to crawl?\n");
+    dir_to_store  = raw_input("Directory to store? [Hit enter for default directory]\n");
+    if(len(dir_to_store) == 0):
+            dir_to_store = os.getcwd() + os.sep;
 
-extensions = raw_input("enter extensions (comma seperated) and without '.', (i.e to match .pdf files just type pdf)\n");
-extension_list = [x for x in extensions.split(",")];
+    extensions = raw_input("enter extensions (comma seperated) and without '.', (i.e to match .pdf files just type pdf)\n");
+    extension_list = [x for x in extensions.split(",")];
 
-req = urllib2.Request(crawl_link,headers={'User-Agent': 'Mozilla/5.0'}); #trolling websites to bypass some 403 Forbidden status codes
+    req = urllib2.Request(crawl_link,headers={'User-Agent': 'Mozilla/5.0'}); #trolling websites to bypass some 403 Forbidden status codes
 
-response = urllib2.urlopen(req);
-html = response.read();
-download_links = extract_links(extension_list,html);
-print("Downloading " + str(len(download_links)) + " files!");
+    response = urllib2.urlopen(req);
+    html = response.read();
+    download_links = extract_links(extension_list,html);
+    print("Downloading " + str(len(download_links)) + " files!");
 
-max_threads = 4; # TODO: find python equivalent of std::thread::hardware_concurrency()
+    max_threads = multiprocessing.cpu_count(); # TODO: find python equivalent of std::thread::hardware_concurrency()
 
-min_work_per_thread = 2; # 2 downloads per thread (maybe this is too little?)
+    min_work_per_thread = 2; # 2 downloads per thread (maybe this is too little?)
 
-num_threads = min([max_threads,len(download_links) + min_work_per_thread - 1]); #avoid thread oversubscription
+    num_threads = min([max_threads,len(download_links) + min_work_per_thread - 1]); #avoid thread oversubscription
 
-downloads_sent = 0;
-for i in range(num_threads):
-    t = threading.Thread(target=download,args=[crawl_link,download_links,downloads_sent,downloads_sent + min_work_per_thread]);
-    thread_array.append(t);
-    t.start();
-    downloads_sent += min_work_per_thread;
+    thread_pool = Pool(processes=max_threads);
 
-#finish the remainder using this thread
-if(downloads_sent < len(download_links)):
-    download(crawl_link,download_links,downloads_sent,len(download_links));
+    downloads_sent = 0;
+    if(not(len(download_links) & 1)): #even number
+            
+            for i in range(len(download_links)):
+       #             thread_pool.map(download_iter,[crawl_link,download_links,downloads_sent,downloads_sent+min_work_per_thread]);
+                    thread_array.append(thread_pool.apply_async(download,[crawl_link,dir_to_store,download_links,downloads_sent,downloads_sent+min_work_per_thread]));
+                    downloads_sent += min_work_per_thread;
+    else:
+            for i in range(len(download_links)-1):
+                    #thread_pool.map(download_iter,[crawl_link,download_links,downloads_sent,downloads_sent+min_work_per_thread]);
+                    thread_array.append(thread_pool.apply_async(download,[crawl_link,dir_to_store,download_links,downloads_sent,downloads_sent+min_work_per_thread]));
+                    downloads_sent += min_work_per_thread;
+            thread_array.append(thread_pool.apply_async(download_iter,[crawl_link,download_links,downloads_sent,downloads_sent+1]));
+    thread_pool.close();
+    thread_pool.join();
+    #downloads_sent = 0;
+    #for i in range(num_threads):
+            #t = threading.Thread(target=download,args=[crawl_link,download_links,downloads_sent,downloads_sent + min_work_per_thread]);
+            #thread_array.append(t);
+            #t.start();
+            #downloads_sent += min_work_per_thread;
+
+    #finish the remainder using this thread
+    #if(downloads_sent < len(download_links)):
+    #    download(crawl_link,download_links,downloads_sent,len(download_links));
 
 
-      
-print("Finished!");
+   
+    print("Finished!");
+if __name__ == '__main__':
+    main();
+    
 
 
 
