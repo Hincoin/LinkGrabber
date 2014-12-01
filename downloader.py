@@ -28,8 +28,9 @@ def download(crawl_link,dir_to_store,download_links,beginning,end):
         file_n = download_links[iterator];
         file_name = urllib2.unquote(file_n);
         file_name_parse = urlparse(file_name);
-        #destination file
-        save_file_name = dir_to_store + file_name_parse[2].split("/")[len(file_name_parse[2].split("/"))-1];
+
+        split_slash = file_name_parse[2].split("/");
+        save_file_name = dir_to_store + split_slash[-1];
     
         logging.warning("Downloading file " + str(iterator + 1) + "/" + str(len(download_links)));
 
@@ -38,7 +39,7 @@ def download(crawl_link,dir_to_store,download_links,beginning,end):
     
         if(not (file_name_parse[0] == 'http' or file_name_parse[0] == 'https')):
 
-          split_slash = file_name_parse[2].split("/");
+          
           final_length = -1 *len(split_slash[-1]);
           
           #check if absoulute or relative filepath
@@ -75,8 +76,7 @@ def extract_links(extensions,html):
               
           print("Found " + str(len(valid_links)) + " links!");
           
-          #trying to be fluent in pythonese
-          potential_downloads.extend([ x for x in valid_links if x.split(".")[len(x.split("."))-1] in extensions]);
+          potential_downloads.extend(valid_links);
 
         return potential_downloads;
 
@@ -98,39 +98,31 @@ def main():
     download_links = extract_links(extension_list,html);
     print("Downloading " + str(len(download_links)) + " files!");
 
-    max_threads = multiprocessing.cpu_count(); # TODO: find python equivalent of std::thread::hardware_concurrency()
+    max_threads = multiprocessing.cpu_count(); 
 
-    min_work_per_thread = 2; # 2 downloads per thread (maybe this is too little?)
+    work_per_thread = 2; # 2 downloads per thread (maybe this is too little?)
 
-    num_threads = min([max_threads,len(download_links) + min_work_per_thread - 1]); #avoid thread oversubscription
 
     thread_pool = Pool(processes=max_threads);
 
     downloads_sent = 0;
-    if(not(len(download_links) & 1)): #even number
+    if((len(download_links) % work_per_thread) == 0): #divisible by work per thread
             
             for i in range(len(download_links)):
-       #             thread_pool.map(download_iter,[crawl_link,download_links,downloads_sent,downloads_sent+min_work_per_thread]);
-                    thread_array.append(thread_pool.apply_async(download,[crawl_link,dir_to_store,download_links,downloads_sent,downloads_sent+min_work_per_thread]));
-                    downloads_sent += min_work_per_thread;
+                    thread_array.append(thread_pool.apply_async(download,[crawl_link,dir_to_store,download_links,downloads_sent,downloads_sent+work_per_thread]));
+                    downloads_sent += work_per_thread;
     else:
-            for i in range(len(download_links)-1):
-                    #thread_pool.map(download_iter,[crawl_link,download_links,downloads_sent,downloads_sent+min_work_per_thread]);
-                    thread_array.append(thread_pool.apply_async(download,[crawl_link,dir_to_store,download_links,downloads_sent,downloads_sent+min_work_per_thread]));
-                    downloads_sent += min_work_per_thread;
-            thread_array.append(thread_pool.apply_async(download_iter,[crawl_link,download_links,downloads_sent,downloads_sent+1]));
+
+            remainder = len(download_links) % work_per_thread;
+            for i in range(len(download_links)-remainder):
+                    thread_array.append(thread_pool.apply_async(download,[crawl_link,dir_to_store,download_links,downloads_sent,downloads_sent+work_per_thread]));
+                    downloads_sent += work_per_thread;
+            thread_array.append(thread_pool.apply_async(download_iter,[crawl_link,download_links,downloads_sent,downloads_sent + (work_per_thread - remainder)]));
+
+
     thread_pool.close();
     thread_pool.join();
-    #downloads_sent = 0;
-    #for i in range(num_threads):
-            #t = threading.Thread(target=download,args=[crawl_link,download_links,downloads_sent,downloads_sent + min_work_per_thread]);
-            #thread_array.append(t);
-            #t.start();
-            #downloads_sent += min_work_per_thread;
 
-    #finish the remainder using this thread
-    #if(downloads_sent < len(download_links)):
-    #    download(crawl_link,download_links,downloads_sent,len(download_links));
 
 
    
